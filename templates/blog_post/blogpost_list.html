@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="row justify-content-between">
+        <div class="col-4">
+            <h1>Blog Posts</h1>
+        </div>
+        <div class="col-4">
+            <h2><a href="/blog/create">Create Post</a></h2>
+        </div>
+    </div>
+    
+    <div class="list-group">
+    {% for blog_post in object_list reversed %}
+    <a href="{{blog_post.id}}" class="list-group-item list-group-item-action flex-column align-items-start">
+        <div class="d-flex w-100 justify-content-between">
+            <h5 class="mb-1">{{ blog_post.title }}</h5>
+            <small>{{ blog_post.created_date }}</small>
+        </div>
+        <p class="mb-1">{{ blog_post.body|slice:":250" }}</p>
+        <small>Written by {{ blog_post.user }}</small>
+
+      </a>
+    {% endfor %}
+    </div>
+{% endblock %}

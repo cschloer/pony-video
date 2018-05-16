@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">{{ object.title }}</h5>
+    <h6 class="card-subtitle mb-2 text-muted">Written by {{ object.user }} on {{ object.created_date }}</h6>
+    <p class="card-text">{{ object.body }}</p>
+	{% if user.is_authenticated and user == object.user %}
+		<a href="/blog/update/{{ object.id }}" class="card-link">Edit this post</a>
+	{% endif %}
+  </div>
+</div>
+{% endblock %}

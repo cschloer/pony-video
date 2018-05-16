@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Create Post</h1>
+
+<form action="" method="post">{% csrf_token %}
+    {{ form.as_p }}
+    <input type="hidden" id="user_id" name="user" value="{{ user.id }}" />
+    <input class="btn btn-primary" type="submit" value="Save" />
+</form>
+{% endblock %}
