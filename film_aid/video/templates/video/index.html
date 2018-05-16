@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="content container">
+<div class="row justify-content-between">
+    <div class="col-4">
+        <h1>Videos</h1>
+    </div>
+    <div class="col-0">
+        <h2><a href="/video/create">Add Video</a></h2>
+    </div>
+</div>
+<div class="list-group"> 
+{% if video_list %}
+    {% for video in video_list %}
+        <a href="/video/{{ video.id }}" class="list-group-item list-group-item-action flex-column align-items-start">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">{{ video.title }}</h5>
+                <small>{{ video.pub_date }}</small>
+            </div>
+            <p class="mb-1">{{ video.description|slice:":250" }}</p>
+            <small>Created by {{ video.user }}</small>
+        </a>
+    {% endfor %}
+{% else %}
+    <p>No videos are available.</p>
+{% endif %}
+</div>
+</div>
+{% endblock %}
