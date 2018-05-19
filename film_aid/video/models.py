@@ -16,7 +16,7 @@ class Video(models.Model):
 class Note(models.Model):
     video = models.ForeignKey(Video, on_delete=models.CASCADE)
     ts = models.IntegerField()
-    title = models.CharField(max_length=200)
+    title = models.CharField(max_length=20)
     description = models.CharField(max_length=200)
     pub_date = models.DateTimeField('date published')
     user = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)

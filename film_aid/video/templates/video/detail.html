@@ -3,19 +3,18 @@
 {% block content %}
 <div class="card">
   <div class="card-body">
-    <h5 class="card-title">{{ video.title }}</h5>
-    <h6 class="card-subtitle mb-2 text-muted">Created by {{ video.user }} on {{ video.pub_date }}</h6>
-    <p class="card-text">{{ video.description }}</p>
-    <!-- 1. The <iframe> (and video player) will replace this <div> tag. -->
     <div class="row">
-        <div class="col-xl-8">
+        <div class="col-lg-8 p-2" style="border-right: 1px solid black">
+			<h5 class="card-title">{{ video.title }}</h5>
+			<h6 class="card-subtitle mb-2 text-muted">Created by {{ video.user }} on {{ video.pub_date }}</h6>
+			<p class="card-text">{{ video.description }}</p>
+			<!-- 1. The <iframe> (and video player) will replace this <div> tag. -->
             <div id="player" style="width: 100%"></div>
         </div>
 
 
     <script>
       // 2. This code loads the IFrame Player API code asynchronously.
-      console.log('{{ notes }}');
       var tag = document.createElement('script');
       // Calculate the ID from a video
       function getYouTubeId(url) {
@@ -44,51 +43,305 @@
           videoId: getYouTubeId('{{ video.url }}'),
           events: {
             'onReady': onPlayerReady,
+            'onStateChange': onPlayerStateChange
+        
           }
         });
       }
 
       // 4. The API will call this function when the video player is ready.
       function onPlayerReady(event) {
+        // Only show notes once player has loaded
+        $('#notes-section').show();
         event.target.playVideo();
+      }
+
+      function onPlayerStateChange(event) {
+        if (event.data == YT.PlayerState.ENDED) {
+			stopVideo();
+        }
+      }
+
+	  function stopVideo() {
+        player.stopVideo();
       }
 
     </script>
 
-        <div class="col-xl-4">
+        <div class="col-lg-4">
         <script>
             var determineTimestamp = (ts) => {
-                console.log('Got ts', ts);
                 minute = Math.floor(ts / 60);
                 second = ts % 60;
-                console.log(minute, second);
-                console.log(`${minute}:${second}`);
                 return `${minute < 10 ? '0' + minute : minute}:${second < 10 ? '0' + second : second}`;
-            }
+            };
             var seekToTs = (ts) => {
-                console.log('seeking to ts', ts);
                 player.seekTo(ts, true)
+            };
+            var noteTypeToIcon = (noteType) => {
+                switch (noteType) {
+                    case 'PS':
+                        return 'play';
+                        break;
+                    case 'DF':
+                        return 'hand-paper';
+                        break;
+                    case 'TO':
+                        return 'ban';
+                        break;
+                    case 'OT':
+                        return 'question';
+                        break;
+                    default:
+                        return 'exclamation-triangle';
+                }
+            };
+            var filtered = false;
+            var toggleFilter = () => {
+                if (filtered) {
+                    $('#points-only').hide();
+                    $('#all-events').show();
+                    $('#notes-filter-button').html('<i class="fas fa-filter"></i> only show pulls');
+                } else { 
+                    $('#all-events').hide();
+                    $('#points-only').show();
+                    $('#notes-filter-button').html('<i class="fas fa-filter"></i> show all notes');
+                }
+                filtered = !filtered;
+            }
+            // The number of seconds on the youtube video when button was clicked
+            createNoteNumSeconds = 0;
+            var createNote = () => {
+                $.post(
+                    "/video/{{ video.id }}/create_note/",
+                    {
+                        ts: createNoteNumSeconds,
+                        title: $('#create-note-title').val(),
+                        description:$('#create-note-description').val(),
+                        note_type: $('#create-note-type').val(),
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                    },
+                ).done(
+                    (response) => {
+                        closeNoteCreatePopover();
+                        $('#recently-created-note-section').show()
+                        $('#recently-created-note-div').append(`
+                            <div class="row pb-1">
+                                <div class="btn-group" data-toggle="buttons">
+                                    <button type="button" class="btn btn-success" onclick="seekToTs(${response.note.ts})">
+                                        ${determineTimestamp(response.note.ts)}
+                                    </button>
+                                    <button
+                                        class="btn btn-default"
+                                        style="width: 50px"
+                                        data-container="body"
+                                        data-toggle="popover"
+                                        data-placement="top"
+                                        data-trigger="focus"
+                                        data-content="${response.note.note_type}"
+                                    >
+                                        ${'<i class="fas fa-' + noteTypeToIcon(response.note.note_type) + '"></i>'} 
+                                    </button>	
+                                    <button
+                                        type="button"
+                                        class="btn btn-info"
+                                        data-container="body"
+                                        data-toggle="popover"
+                                        data-placement="right"
+                                        data-trigger="focus"
+                                        data-content="${response.note.description}"
+                                    >
+                                        ${response.note.title} 
+                                    </button>
+                                </div>
+                            </div>
+                        `);
+                    }
+                )
+            }
+            var closeNoteCreatePopover = () => {
+                $('#create-note-open-button').popover('hide')
             }
         </script>
-        {% for note in video.note_set.all %}
-        <div class="row pb-1">
-        <div class="btn-group" data-toggle="buttons">
-            <button type="button" class="btn btn-primary" onclick="seekToTs({{ note.ts }})">
-                <script>document.write(determineTimestamp({{ note.ts }}))</script>
-            </button>
-            <button
-                type="button"
-                class="btn btn-secondary"
-                data-container="body"
-                data-toggle="popover"
-                data-placement="right"
-                data-content="{{ note.description }}"
-            >
-                {{ note.title }}
-            </button>
-        </div>
-        </div>
-        {% endfor %}
+		<div id="notes-section" class="container" style="display: none;">
+            <h5 class="card-title">
+                Notes
+            </h5>
+            <div class="pb-2">
+                <a
+					tabindex="0"
+					class="btn btn-lg btn-primary"
+                    id="create-note-open-button"
+					role="button"
+					data-toggle="popover"
+					title="Create a note"
+					data-html="true"
+					data-content="
+            <div id='create-note-wrapper'>
+                <div class='form-group row'>
+                    <label for='create-note-ts' class='col-sm-3 col-form-label' style='padding-right: 5px;'>time</label>
+                    <div class='col-sm-9'>
+                        <input class='form-control' id='create-note-ts' type='text' placeholder='' readonly>
+                    </div>
+                </div>
+                <div class='form-group row'>
+                    <label for='create-note-type' class='col-sm-3 col-form-label' style='padding-right: 5px'>type</label>
+                    <div class='col-sm-9 input-group'>
+                        <div class='input-group-prepend'>
+                            <div id='create-note-type-symbol' class='input-group-text'>
+                                <i class='fas fa-play'></i>
+                            </div>
+                        </div>
+                        <select class='form-control mr-sm-2' id='create-note-type'>
+                            <option value='PS' selected>
+                                Point
+                            </option>
+                            <option value='DF'>
+                                <i class='fas fa-hand-paper'></i>
+                                D Stop
+                            </option>
+                            <option value='TO'>
+                                <i class='fas fa-ban'></i>
+                                O Turnover
+                            </option>
+                            <option value='OT'>
+                                <i class='fas fa-question'></i>
+                                Other
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                <script>
+                    $('#create-note-type').on('change', function() {
+                        $('#create-note-type-symbol').html(`
+                            <i class='fas fa-${noteTypeToIcon(this.value)}'></i>
+                        `);
+                    });
+                </script>
+                <div class='form-group row'>
+                    <label for='create-note-title' class='col-sm-3 col-form-label' style='padding-right: 5px'>title</label>
+                    <div class='col-sm-9'>
+                        <input class='form-control' id='create-note-title' type='text' maxlength='20'>
+                        <small id='create-note-title-help' class='form-text text-muted'>ex: 1 - 0, Sean Keegan turnover, etc.</small>
+                    </div>
+                </div>
+                <div class='form-group row'>
+                    <label for='create-note-description' class='col-sm-3 col-form-label' style='padding-right: 5px'>descrip</label>
+                    <div class='col-sm-9'>
+                        <input class='form-control' id='create-note-description' type='text'>
+                        <small id='create-note-description-help' class='form-text text-muted'>ex: D point, unforced turn, etc.</small>
+                    </div>
+                </div>
+                <button id='submit-note-create-button' class='btn btn-primary' onclick='createNote()' style='cursor: pointer'>
+                    Create note
+                </button>
+                <button style='float: right' class='btn btn-warning' onclick='closeNoteCreatePopover()' style='cursor: pointer'>
+                    Cancel
+                </button>
+            </div>
+					"
+				>
+                    <i class="fas fa-plus"></i>
+                    create a note
+				</a>
+                <script>
+                $('#create-note-open-button').on('shown.bs.popover', function () {
+                    createNoteNumSeconds = Math.floor(player.getCurrentTime());
+                    $('#create-note-ts').attr('placeholder', determineTimestamp(createNoteNumSeconds));
+                })
+                </script>
+            </div>
+            <hr />
+            <div class="pb-2" style="display: none" id="recently-created-note-section">
+                <h5 class="card-title">
+                    Your Recently Created Notes
+                </h5>
+                <div id="recently-created-note-div"></div>
+            </div>
+            <hr />
+            <div class="pb-2">
+                <a id="notes-filter-button"  onclick="toggleFilter()" style="cursor: pointer">
+                    <i class="fas fa-filter"></i>
+                    only show pulls
+                </a>
+            </div>
+            {% if video.note_set.all %}
+            <div id="all-events">
+                {% for note in video.note_set.all|dictsort:"ts" %}
+                <div class="row pb-1">
+                <div class="btn-group" data-toggle="buttons">
+                    <button type="button" class="btn btn-success" onclick="seekToTs({{ note.ts }})">
+                        <script>document.write(determineTimestamp({{ note.ts }}))</script>
+                    </button>
+                    <button
+                        class="btn btn-default"
+                        style="width: 50px"
+                        data-container="body"
+                        data-toggle="popover"
+                        data-placement="top"
+                        data-trigger="focus"
+                        data-content="{{ note.get_note_type_display }}"
+                    >
+                        <script>
+                            var iconName = noteTypeToIcon('{{ note.note_type }}');
+                            document.write(`<i class="fas fa-${iconName}"></i>`); 
+                        </script>
+                    </button>	
+                    <button
+                        type="button"
+                        class="btn btn-info"
+                        data-container="body"
+                        data-toggle="popover"
+                        data-placement="right"
+                        data-trigger="focus"
+                        data-content="{{ note.user }}: {{ note.description }}"
+                    >
+                        {{ note.title }}
+                    </button>
+                </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div id="points-only" style="display: none">
+                {% for note in video.note_set.all|dictsort:"ts" %}
+                {% if note.note_type == 'PS' %}
+                <div class="row pb-1">
+                <div class="btn-group" data-toggle="buttons">
+                    <button type="button" class="btn btn-success" onclick="seekToTs({{ note.ts }})">
+                        <script>document.write(determineTimestamp({{ note.ts }}))</script>
+                    </button>
+                    <button
+                        class="btn btn-default"
+                        data-container="body"
+                        data-toggle="popover"
+                        data-placement="top"
+                        data-trigger="focus"
+                        data-content="{{ note.get_note_type_display }}"
+                    >
+                        <script>
+                            var iconName = noteTypeToIcon('{{ note.note_type }}');
+                            document.write(`<i class="fas fa-${iconName}"></i>`); 
+                        </script>
+                    </button>	
+                    <button
+                        type="button"
+                        class="btn btn-info"
+                        data-container="body"
+                        data-toggle="popover"
+                        data-placement="right"
+                        data-trigger="focus"
+                        data-content="{{ note.user }}: {{ note.description }}"
+                    >
+                        {{ note.title }}
+                    </button>
+                </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+                <p>No comments.</p>
+            {% endif %}
         </div>
     </div>
   </div>
